@@ -1,0 +1,40 @@
+#define MAX_STREAMERS 100
+
+new Livestreaming[MAX_PLAYERS];
+new LivestreamTitle[MAX_PLAYERS][128];
+
+CMD:livestream(playerid, params[])
+{
+    if (Livestreaming[playerid])
+    {
+        Livestreaming[playerid] = 0;
+        SendClientMessage(playerid, 0xFF0000FF, "Anda telah menghentikan livestream.");
+        return 1;
+    }
+    
+    if (sscanf(params, "s[128]", LivestreamTitle[playerid]))
+    {
+        SendClientMessage(playerid, 0xFFFF00FF, "Gunakan: /livestream [judul livestream]");
+        return 1;
+    }
+    
+    Livestreaming[playerid] = 1;
+    format(LivestreamTitle[playerid], sizeof(LivestreamTitle[]), "%s", params);
+    SendClientMessage(playerid, 0x00FF00FF, "Anda telah memulai livestream!");
+    return 1;
+}
+
+CMD:livestreams(playerid, params[])
+{
+    SendClientMessage(playerid, 0xFFFF00FF, "--- Streamer Aktif ---");
+    for (new i = 0; i < MAX_PLAYERS; i++)
+    {
+        if (Livestreaming[i])
+        {
+            new msg[144];
+            format(msg, sizeof(msg), "{00FF00}%s {FFFFFF}- {FFFF00}%s", GetPlayerNameEx(i), LivestreamTitle[i]);
+            SendClientMessage(playerid, -1, msg);
+        }
+    }
+    return 1;
+}
