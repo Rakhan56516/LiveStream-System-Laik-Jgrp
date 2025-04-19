@@ -1,0 +1,19 @@
+name: Send commit to Discord
+
+on:
+  push:
+    branches:
+      - main  # atau sesuaikan dengan branch kamu
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send commit info to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          COMMITS=$(git log -1 --pretty=format:"%s by %an")
+          curl -H "Content-Type: application/json" -X POST \
+          -d "{\"content\":\"📢 New commit pushed: $COMMITS\"}" \
+          $DISCORD_WEBHOOK
