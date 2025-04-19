@@ -1,0 +1,85 @@
+const Discord = require('discord.js');
+const config = require('config');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const cron = require('node-cron');
+const moment = require('moment-timezone');
+
+// Config
+const dbConfig = config.get('database');
+const botToken = config.get('discord.token');
+const channelId = config.get('discord.channelId');
+const backupDir = path.resolve(config.get('backup.folder'));
+const schedule = config.get('backup.schedule');
+
+// Buat folder backup jika belum ada
+if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+}
+
+// Timestamp format (Timezone Jakarta)
+function getTimestamp() {
+    return moment().tz('Asia/Jakarta').format('YYYY-MM-DD_HH-mm-ss');
+}
+
+// Backup database
+function backupDatabase() {
+    const timestamp = getTimestamp();
+    const filename = `${dbConfig.name}_${timestamp}.sql`;
+    const filepath = path.join(backupDir, filename);
+    const dumpCommand = `mysqldump -h ${dbConfig.host} -u ${dbConfig.user} -p${dbConfig.password} ${dbConfig.name} > "${filepath}"`;
+
+    exec(dumpCommand, async (error, stdout, stderr) => {
+        if (error) return console.error(`[ERROR] Gagal backup: ${error.message}`);
+        if (stderr) console.error(`[STDERR] ${stderr}`);
+        console.log(`[SUCCESS] Backup berhasil: ${filepath}`);
+        await uploadToDiscord(filepath);
+    });
+}
+
+// Upload ke Discord dan hapus file lokal setelah upload
+async function uploadToDiscord(filepath) {
+    try {
+        const channel = client.channels.cache.get(channelId);
+        if (!channel) {
+            console.error('[DISCORD] Channel tidak ditemukan.');
+            return;
+        }
+
+        await channel.send({
+            content: `📦 Backup database \`${path.basename(filepath)}\``,
+            files: [filepath]
+        });
+
+        console.log('[DISCORD] Backup berhasil dikirim.');
+
+        // Hapus file setelah upload
+        fs.unlinkSync(filepath);
+        console.log('[FILE] Backup lokal telah dihapus.');
+    } catch (err) {
+        console.error('[DISCORD ERROR]', err.message);
+    }
+}
+
+// Jalankan bot
+const client = new Discord.Client({
+    intents: [] // Tambahkan intents jika kamu butuh
+});
+
+client.once('ready', () => {
+    console.log(`[BOT] Login sebagai ${client.user.tag}`);
+
+    // Jalankan cron dengan timezone Jakarta
+    cron.schedule(schedule, () => {
+        console.log('[CRON] Memulai backup...');
+        backupDatabase();
+    }, {
+        timezone: 'Asia/Jakarta'
+    });
+
+    // (Opsional) Jalankan langsung
+    // backupDatabase();
+});
+
+client.login(botToken);
